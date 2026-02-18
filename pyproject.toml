@@ -11,5 +11,17 @@ dependencies = [
     "numpy>=2.4.2",
     "pandas>=3.0.1",
     "sentence-transformers>=5.2.3",
+    "torch",
+    "torchvision",
     "transformers>=5.2.0",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cuda" }]
+torchvision = [{ index = "pytorch-cuda" }]
+torchaudio = [{ index = "pytorch-cuda" }]
