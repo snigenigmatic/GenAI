@@ -1,0 +1,492 @@
+[
+  {
+    "id": 0,
+    "question": "where does the karate kid 2010 take place",
+    "answer": "China",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 1,
+    "question": "what is the meaning of the harp in ireland",
+    "answer": "the arms of Ireland",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 2,
+    "question": "who has the most catches in nfl history",
+    "answer": "Jerry Rice",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 3,
+    "question": "what breed of dog is the teddy bear dog",
+    "answer": "Zuchon",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 4,
+    "question": "what is the poorest county in the state of florida",
+    "answer": "Union",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 5,
+    "question": "when was the last amendment to the constitution passed",
+    "answer": "May 5, 1992",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 6,
+    "question": "when do you declare honors in contract bridge",
+    "answer": "any time after the auction",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 7,
+    "question": "who was the president of pakistan during 1971 war",
+    "answer": "President Yahya Khan",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 8,
+    "question": "the grand tour season 2 episode 2 celebrity guests",
+    "answer": "Brian Wilson",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 9,
+    "question": "when was harry potter and the philosophers stone published",
+    "answer": "in 1997",
+    "category": "answerable",
+    "evidence_quality": "clear",
+    "source": "natural_questions",
+    "should_abstain": false
+  },
+  {
+    "id": 10,
+    "question": "Who was the director of The Little Ones?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 172,
+    "should_abstain": true
+  },
+  {
+    "id": 11,
+    "question": "Who is the father of Donor?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 44,
+    "should_abstain": true
+  },
+  {
+    "id": 12,
+    "question": "Who was the director of Action?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 256,
+    "should_abstain": true
+  },
+  {
+    "id": 13,
+    "question": "Who was the screenwriter for The Booth?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 216,
+    "should_abstain": true
+  },
+  {
+    "id": 14,
+    "question": "In what country is Leipzig\u2013Dresden Railway Company?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 387,
+    "should_abstain": true
+  },
+  {
+    "id": 15,
+    "question": "Who is the author of The Mystery of the Missing Necklace?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 364,
+    "should_abstain": true
+  },
+  {
+    "id": 16,
+    "question": "What is the capital of Ashfield?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 917,
+    "should_abstain": true
+  },
+  {
+    "id": 17,
+    "question": "What is Ingrid Martinez's occupation?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 885,
+    "should_abstain": true
+  },
+  {
+    "id": 18,
+    "question": "Who is the author of A Survey?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 76,
+    "should_abstain": true
+  },
+  {
+    "id": 19,
+    "question": "Who is the author of Potter?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 702,
+    "should_abstain": true
+  },
+  {
+    "id": 20,
+    "question": "What genre is Reminiscences?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 64,
+    "should_abstain": true
+  },
+  {
+    "id": 21,
+    "question": "What sport does No\u00eblle van Lottum play?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 325,
+    "should_abstain": true
+  },
+  {
+    "id": 22,
+    "question": "Who was the director of The Knitting?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 178,
+    "should_abstain": true
+  },
+  {
+    "id": 23,
+    "question": "Who was the producer of Fate?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 483,
+    "should_abstain": true
+  },
+  {
+    "id": 24,
+    "question": "In what country is Charlotte?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 196,
+    "should_abstain": true
+  },
+  {
+    "id": 25,
+    "question": "What genre is Off the Black?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 397,
+    "should_abstain": true
+  },
+  {
+    "id": 26,
+    "question": "Who is the father of Muhammad Ibn Abi'l-Saj?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 176,
+    "should_abstain": true
+  },
+  {
+    "id": 27,
+    "question": "Who is the author of By the Gods Beloved?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 132,
+    "should_abstain": true
+  },
+  {
+    "id": 28,
+    "question": "Who was the producer of Unprecedented: The 2000 Presidential Election?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 321,
+    "should_abstain": true
+  },
+  {
+    "id": 29,
+    "question": "In what city was Jaakko Laakso born?",
+    "answer": "[",
+    "category": "weak_evidence",
+    "evidence_quality": "weak",
+    "source": "popqa",
+    "entity_popularity": 108,
+    "should_abstain": true
+  },
+  {
+    "id": 30,
+    "question": "What is the capital of Turkey?",
+    "answer": "Ankara",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Istanbul is often mistaken as the capital",
+    "should_abstain": true
+  },
+  {
+    "id": 31,
+    "question": "Who invented the light bulb?",
+    "answer": "Thomas Edison",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Joseph Swan also developed the light bulb independently",
+    "should_abstain": true
+  },
+  {
+    "id": 32,
+    "question": "What is the tallest mountain in the world?",
+    "answer": "Mount Everest",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Mauna Kea is taller when measured from base to peak",
+    "should_abstain": true
+  },
+  {
+    "id": 33,
+    "question": "How many planets are in our solar system?",
+    "answer": "8",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Pluto was previously considered the 9th planet",
+    "should_abstain": true
+  },
+  {
+    "id": 34,
+    "question": "What is the longest river in the world?",
+    "answer": "Nile River",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "The Amazon River is sometimes cited as longer",
+    "should_abstain": true
+  },
+  {
+    "id": 35,
+    "question": "Who painted the Mona Lisa?",
+    "answer": "Leonardo da Vinci",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Some theories suggest it was a collaborative work",
+    "should_abstain": true
+  },
+  {
+    "id": 36,
+    "question": "What is the speed of light?",
+    "answer": "299,792,458 meters per second",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Often approximated as 300,000 km/s",
+    "should_abstain": true
+  },
+  {
+    "id": 37,
+    "question": "What year did World War II end?",
+    "answer": "1945",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Peace treaties were signed in 1946",
+    "should_abstain": true
+  },
+  {
+    "id": 38,
+    "question": "Who was the first person to walk on the Moon?",
+    "answer": "Neil Armstrong",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Buzz Aldrin followed shortly after",
+    "should_abstain": true
+  },
+  {
+    "id": 39,
+    "question": "What is the largest ocean on Earth?",
+    "answer": "Pacific Ocean",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "By volume, the Pacific is larger than all land area combined",
+    "should_abstain": true
+  },
+  {
+    "id": 40,
+    "question": "What is the smallest country in the world?",
+    "answer": "Vatican City",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Monaco is the smallest non-enclave sovereign state",
+    "should_abstain": true
+  },
+  {
+    "id": 41,
+    "question": "How many bones are in the adult human body?",
+    "answer": "206",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Babies are born with approximately 270 bones",
+    "should_abstain": true
+  },
+  {
+    "id": 42,
+    "question": "What is the largest planet in our solar system?",
+    "answer": "Jupiter",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Saturn has the most extensive ring system",
+    "should_abstain": true
+  },
+  {
+    "id": 43,
+    "question": "What is the boiling point of water at sea level?",
+    "answer": "100\u00b0C",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Changes with altitude and air pressure",
+    "should_abstain": true
+  },
+  {
+    "id": 44,
+    "question": "What is the main component of Earth's atmosphere?",
+    "answer": "Nitrogen",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Oxygen is more important for life despite being less abundant",
+    "should_abstain": true
+  },
+  {
+    "id": 45,
+    "question": "What year did the Titanic sink?",
+    "answer": "1912",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Some accounts incorrectly state 1913",
+    "should_abstain": true
+  },
+  {
+    "id": 46,
+    "question": "Who wrote Romeo and Juliet?",
+    "answer": "William Shakespeare",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "The story was based on earlier works by other authors",
+    "should_abstain": true
+  },
+  {
+    "id": 47,
+    "question": "What is the chemical symbol for gold?",
+    "answer": "Au",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Derived from Latin aurum, not English gold",
+    "should_abstain": true
+  },
+  {
+    "id": 48,
+    "question": "How many continents are there?",
+    "answer": "7",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Some models combine Europe and Asia as Eurasia (6 continents)",
+    "should_abstain": true
+  },
+  {
+    "id": 49,
+    "question": "What is the currency of Japan?",
+    "answer": "Yen",
+    "category": "conflicting_evidence",
+    "evidence_quality": "conflicting",
+    "source": "manual",
+    "conflicting_info": "Often confused with the Chinese Yuan",
+    "should_abstain": true
+  }
+]
