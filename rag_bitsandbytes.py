@@ -1,18 +1,21 @@
 """
-Complete RAG System with Uncertainty Estimation using BitsAndBytes
-Builds on your working implementation
+RAG System with Epistemic Uncertainty Estimation
+BitsAndBytes quantization (FP16 / INT4)
 """
 
-import torch
-import numpy as np
-import pandas as pd
-from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
 
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-from sentence_transformers import SentenceTransformer
 import faiss
+import numpy as np
+import torch
+from sentence_transformers import SentenceTransformer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+# ─────────────────────────────────────────────
+# Data structures
+# ─────────────────────────────────────────────
 
 
 class Decision(Enum):
@@ -23,601 +26,472 @@ class Decision(Enum):
 
 @dataclass
 class UncertaintyEstimate:
-    """Container for all uncertainty scores"""
+    answer: str
     token_entropy: float
     semantic_variance: float
     self_eval_uncertainty: float
-    combined_uncertainty: float
+    combined: float
     decision: Decision
     confidence: float
 
 
+# ─────────────────────────────────────────────
+# LLM wrapper
+# ─────────────────────────────────────────────
+
+
 class BitsAndBytesLLM:
     """
-    Wrapper for BitsAndBytes quantized models
-    Supports both FP16 and INT4
+    Wraps a HuggingFace causal LM with BitsAndBytes quantisation.
+    Uses apply_chat_template so Mistral-Instruct actually follows instructions.
     """
-    
+
     def __init__(
         self,
-        model_name: str = "mistralai/Mistral-7B-Instruct-v0.3",
-        quantization: str = "int4",  # "fp16" or "int4"
-        device: str = "cuda"
+        model_name: str = "unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
+        quantization: str = "int4",
+        device: str = "cuda",
     ):
-        """
-        Initialize model with BitsAndBytes quantization
-        
-        Args:
-            model_name: HuggingFace model name
-            quantization: "fp16" or "int4"
-            device: "cuda" or "cpu"
-        """
         self.model_name = model_name
         self.quantization = quantization
         self.device = device
-        
-        print(f"\nLoading {model_name}")
-        print(f"Quantization: {quantization}")
-        
-        # Load tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+        print(f"\nLoading {model_name}  [{quantization}]")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            "unsloth/mistral-7b-instruct-v0.3-bnb-4bit"
+        )
         self.tokenizer.pad_token = self.tokenizer.eos_token
-        
-        # Configure quantization
+
         if quantization == "int4":
-            print("Using INT4 quantization (BitsAndBytes)")
-            quantization_config = BitsAndBytesConfig(
+            bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_compute_dtype=torch.float16,
                 bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4"
+                bnb_4bit_quant_type="nf4",
             )
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name,
-                quantization_config=quantization_config,
+                quantization_config=bnb_config,
                 device_map="auto",
-                torch_dtype=torch.float16
+                torch_dtype=torch.float16,
             )
-        else:  # fp16
-            print("Using FP16 (no quantization)")
+        else:
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name,
                 device_map="auto",
-                torch_dtype=torch.float16
+                torch_dtype=torch.float16,
             )
-        
+
         self.model.eval()
-        print("Model loaded successfully\n")
-    
-    def generate(
-        self,
-        prompt: str,
-        temperature: float = 0.0,
-        max_new_tokens: int = 100,
-        return_logprobs: bool = False
-    ) -> Dict:
-        """
-        Generate text with optional logprobs
-        
-        Returns:
-            Dict with 'text' and optionally 'logprobs'
-        """
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        
-        with torch.no_grad():
-            if return_logprobs or temperature == 0.0:
-                # Greedy decoding with logprobs
-                outputs = self.model.generate(
-                    **inputs,
-                    max_new_tokens=max_new_tokens,
-                    do_sample=(temperature > 0.0),
-                    temperature=temperature if temperature > 0.0 else 1.0,
-                    return_dict_in_generate=True,
-                    output_scores=True,
-                    pad_token_id=self.tokenizer.eos_token_id
-                )
-                
-                generated_ids = outputs.sequences[0][inputs.input_ids.shape[1]:]
-                text = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
-                
-                if return_logprobs:
-                    # Extract logprobs from scores
-                    logprobs = self._extract_logprobs(outputs.scores)
-                    return {'text': text, 'logprobs': logprobs}
-                else:
-                    return {'text': text}
-            else:
-                # Simple sampling without logprobs (faster)
-                outputs = self.model.generate(
-                    **inputs,
-                    max_new_tokens=max_new_tokens,
-                    do_sample=True,
-                    temperature=temperature,
-                    pad_token_id=self.tokenizer.eos_token_id
-                )
-                
-                generated_ids = outputs[0][inputs.input_ids.shape[1]:]
-                text = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
-                return {'text': text}
-    
-    def _extract_logprobs(self, scores: Tuple[torch.Tensor]) -> List[Dict]:
-        """
-        Extract top-k logprobs from generation scores
-        
-        Args:
-            scores: Tuple of (vocab_size,) tensors, one per generated token
-        
-        Returns:
-            List of dicts mapping tokens to logprobs
-        """
-        logprobs_list = []
-        
-        for score in scores:
-            # score shape: (batch_size, vocab_size)
-            score = score[0]  # Remove batch dimension
-            
-            # Get top-5 tokens
-            top_logprobs, top_indices = torch.topk(
-                torch.log_softmax(score, dim=-1),
-                k=min(5, score.shape[-1])
-            )
-            
-            # Convert to dict
-            logprobs_dict = {}
-            for logprob, idx in zip(top_logprobs, top_indices):
-                token = self.tokenizer.decode([idx])
-                logprobs_dict[token] = logprob.item()
-            
-            logprobs_list.append(logprobs_dict)
-        
-        return logprobs_list
-    
+        print("Model ready\n")
+
+    # ── helpers ──────────────────────────────
+
+    def _apply_template(self, messages: List[Dict]) -> Dict[str, torch.Tensor]:
+        """Apply the model's chat template and move to device."""
+        return self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_tensors="pt",
+            return_dict=True,
+        ).to(self.device)
+
     @staticmethod
-    def compute_token_entropy(logprobs_list: List[Dict]) -> float:
+    def _entropy_from_scores(scores: Tuple[torch.Tensor]) -> float:
         """
-        Compute mean token entropy from logprobs
-        
-        Args:
-            logprobs_list: List of dicts {token: logprob}
-        
-        Returns:
-            Mean entropy across tokens
+        Mean per-token Shannon entropy over the FULL vocabulary distribution.
+        H = -sum(p * log p)
+        This matches what the notebook computes.
         """
         entropies = []
-        
-        for token_logprobs in logprobs_list:
-            if not token_logprobs:
-                continue
-            
-            # Extract logprobs and convert to probabilities
-            lp = np.array(list(token_logprobs.values()))
-            p = np.exp(lp)
-            p = p / p.sum()  # Ensure normalization
-            
-            # Compute entropy: H = -sum(p * log(p))
-            H = -np.sum(p * np.log(p + 1e-10))
+        for step_logits in scores:
+            logits = step_logits[0]  # (vocab,)
+            probs = torch.softmax(logits, dim=-1)
+            log_p = torch.log_softmax(logits, dim=-1)
+            H = -(probs * log_p).sum().item()
             entropies.append(H)
-        
         return float(np.mean(entropies)) if entropies else 0.0
+
+    # ── generation ───────────────────────────
+
+    def greedy(
+        self,
+        messages: List[Dict],
+        max_new_tokens: int = 100,
+    ) -> Tuple[str, float]:
+        """
+        Greedy decode; returns (answer_text, mean_token_entropy).
+        Single forward pass — no redundant re-generation.
+        """
+        inputs = self._apply_template(messages)
+        input_len = inputs["input_ids"].shape[1]
+
+        with torch.no_grad():
+            out = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                return_dict_in_generate=True,
+                output_scores=True,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+
+        text = self.tokenizer.decode(
+            out.sequences[0][input_len:], skip_special_tokens=True
+        ).strip()
+        entropy = self._entropy_from_scores(out.scores)
+        return text, entropy
+
+    def sample(
+        self,
+        messages: List[Dict],
+        temperature: float = 0.7,
+        max_new_tokens: int = 100,
+    ) -> str:
+        """Single sampled generation for semantic variance."""
+        inputs = self._apply_template(messages)
+        input_len = inputs["input_ids"].shape[1]
+
+        with torch.no_grad():
+            out = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=True,
+                temperature=temperature,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+
+        return self.tokenizer.decode(
+            out[0][input_len:], skip_special_tokens=True
+        ).strip()
+
+
+# ─────────────────────────────────────────────
+# Retriever
+# ─────────────────────────────────────────────
 
 
 class Retriever:
-    """Sentence-transformers retriever with FAISS"""
-    
+    """FAISS dense retriever backed by sentence-transformers."""
+
     def __init__(
         self,
         documents: List[str],
-        model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
     ):
-        """Initialize retriever with document corpus"""
         self.documents = documents
+
         print(f"Loading retriever: {model_name}")
-        self.embedder = SentenceTransformer(model_name, device="cuda")
-        
-        print(f"Indexing {len(documents)} documents...")
+        self.embedder = SentenceTransformer(model_name, device="cpu")
+
+        print(f"Indexing {len(documents)} documents …")
         embeddings = self.embedder.encode(
             documents,
             normalize_embeddings=True,
             show_progress_bar=True,
-            batch_size=32
-        )
-        
-        # Build FAISS index
+            batch_size=32,
+        ).astype("float32")
+
         dim = embeddings.shape[1]
         self.index = faiss.IndexFlatIP(dim)
-        self.index.add(embeddings.astype('float32'))
-        print(f"Index built: {self.index.ntotal} documents\n")
-    
-    def retrieve(
-        self,
-        query: str,
-        k: int = 5
-    ) -> Tuple[List[str], List[float]]:
-        """
-        Retrieve top-k documents
-        
-        Returns:
-            Tuple of (documents, scores)
-        """
-        q_emb = self.embedder.encode([query], normalize_embeddings=True)
-        scores, idx = self.index.search(q_emb.astype('float32'), k)
-        
-        docs = [self.documents[i] for i in idx[0]]
-        scores = scores[0].tolist()
-        
-        return docs, scores
+        self.index.add(embeddings)
+        print(f"Index ready: {self.index.ntotal} docs\n")
+
+    def retrieve(self, query: str, k: int = 5) -> Tuple[List[str], List[float]]:
+        q_emb = self.embedder.encode([query], normalize_embeddings=True).astype(
+            "float32"
+        )
+        scores, indices = self.index.search(q_emb, k)
+        docs = [self.documents[i] for i in indices[0]]
+        return docs, scores[0].tolist()
+
+
+# ─────────────────────────────────────────────
+# Uncertainty estimator
+# ─────────────────────────────────────────────
 
 
 class UncertaintyEstimator:
-    """Estimates epistemic uncertainty using 3 methods"""
-    
+    """
+    Three uncertainty signals:
+      1. Token entropy   — how uncertain the model is token-by-token
+      2. Semantic variance — disagreement across stochastic samples
+      3. Self-evaluation  — model's own confidence rating
+    """
+
     def __init__(
         self,
         llm: BitsAndBytesLLM,
         embedder: SentenceTransformer,
-        n_samples: int = 5,
-        temperature: float = 0.9
+        n_samples: int = 3,
+        temperature: float = 0.7,
     ):
-        """
-        Initialize uncertainty estimator
-        
-        Args:
-            llm: Language model
-            embedder: Sentence transformer for semantic variance
-            n_samples: Number of samples for semantic variance
-            temperature: Sampling temperature
-        """
         self.llm = llm
         self.embedder = embedder
         self.n_samples = n_samples
         self.temperature = temperature
-    
-    def estimate_token_entropy(self, prompt: str) -> Tuple[str, float]:
-        """
-        Method 1: Token-level entropy
-        
-        Returns:
-            (answer, entropy)
-        """
-        output = self.llm.generate(prompt, temperature=0.0, return_logprobs=True)
-        answer = output['text'].strip()
-        entropy = self.llm.compute_token_entropy(output['logprobs'])
-        
-        return answer, entropy
-    
-    def estimate_semantic_variance(self, prompt: str) -> Tuple[str, float, List[str]]:
-        """
-        Method 2: Semantic variance across samples
-        
-        Returns:
-            (primary_answer, variance, all_answers)
-        """
-        answers = []
-        
-        # Generate multiple samples
-        for _ in range(self.n_samples):
-            output = self.llm.generate(
-                prompt,
-                temperature=self.temperature,
-                max_new_tokens=100
-            )
-            answers.append(output['text'].strip())
-        
-        # Embed all answers
-        embeddings = self.embedder.encode(
-            answers,
-            normalize_embeddings=True,
-            show_progress_bar=False
+
+    # ── individual signals ───────────────────
+
+    def semantic_variance(self, messages: List[Dict]) -> float:
+        """Mean pairwise cosine distance across n sampled answers."""
+        answers = [
+            self.llm.sample(messages, temperature=self.temperature)
+            for _ in range(self.n_samples)
+        ]
+        print(
+            f"   Sampled answers for semantic variance:\n      "
+            + "\n      ".join(answers)
         )
-        
-        # Compute pairwise distances
+        embeddings = self.embedder.encode(answers, normalize_embeddings=True)
         n = len(embeddings)
-        if n > 1:
-            distances = []
-            for i in range(n):
-                for j in range(i + 1, n):
-                    sim = np.dot(embeddings[i], embeddings[j])
-                    distances.append(1 - sim)
-            variance = float(np.mean(distances))
-        else:
-            variance = 0.0
-        
-        # Most common answer as primary
-        primary = max(set(answers), key=answers.count)
-        
-        return primary, variance, answers
-    
-    def estimate_self_evaluation(
-        self,
-        question: str,
-        context: str,
-        answer: str
-    ) -> float:
-        """
-        Method 3: Self-evaluation confidence
-        
-        Returns:
-            Uncertainty score (0-1)
-        """
-        prompt = f"""[INST] Given the context and question below, rate your confidence that the answer is correct on a scale from 0 to 10.
+        if n < 2:
+            return 0.0
+        dists = [
+            1 - float(np.dot(embeddings[i], embeddings[j]))
+            for i in range(n)
+            for j in range(i + 1, n)
+        ]
+        return float(np.mean(dists))
 
-Context: {context[:500]}
+    def self_eval(self, question: str, context: str, answer: str) -> float:
+        """Ask the model to rate its own confidence → convert to uncertainty."""
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    "Given the context and question, rate your confidence that the answer "
+                    "is correct on a scale from 0 (no confidence) to 10 (certain).\n\n"
+                    f"Context: {context[:500]}\n\n"
+                    f"Question: {question}\n\n"
+                    f"Answer: {answer}\n\n"
+                    "Confidence rating (0-10, single integer):"
+                ),
+            }
+        ]
+        raw, _ = self.llm.greedy(messages, max_new_tokens=5)
 
-Question: {question}
+        import re
 
-Answer: {answer}
+        nums = re.findall(r"\d+", raw)
+        score = min(10, max(0, int(nums[0]))) if nums else 5
+        return (10 - score) / 10.0
 
-Rate your confidence from 0 (no confidence) to 10 (absolute confidence).
-Confidence rating: [/INST]"""
-        
-        output = self.llm.generate(prompt, temperature=0.0, max_new_tokens=5)
-        confidence_text = output['text'].strip()
-        
-        # Parse confidence
-        try:
-            import re
-            numbers = re.findall(r'\d+', confidence_text)
-            if numbers:
-                confidence = min(10, max(0, int(numbers[0])))
-            else:
-                confidence = 5  # Default
-        except:
-            confidence = 5
-        
-        # Convert to uncertainty
-        uncertainty = (10 - confidence) / 10
-        return uncertainty
-    
+    # ── combined ─────────────────────────────
+
     def estimate_all(
         self,
-        prompt: str,
+        messages: List[Dict],
         question: str,
-        context: str
+        context: str,
     ) -> UncertaintyEstimate:
         """
-        Estimate using all 3 methods
-        
-        Returns:
-            UncertaintyEstimate object
+        Run all three signals.
+        Returns an UncertaintyEstimate that includes the greedy answer text —
+        so callers never need to re-run generation.
         """
-        print("  Computing token entropy...", end=" ", flush=True)
-        answer, token_entropy = self.estimate_token_entropy(prompt)
-        print(f"✓ ({token_entropy:.3f})")
-        
-        print("  Computing semantic variance...", end=" ", flush=True)
-        _, semantic_var, _ = self.estimate_semantic_variance(prompt)
-        print(f"✓ ({semantic_var:.3f})")
-        
-        print("  Computing self-evaluation...", end=" ", flush=True)
-        self_eval = self.estimate_self_evaluation(question, context, answer)
-        print(f"✓ ({self_eval:.3f})")
-        
-        # Combined uncertainty (weighted average)
+        print("  [1/3] token entropy …", end=" ", flush=True)
+        answer, t_entropy = self.llm.greedy(messages)
+        print(f"{t_entropy:.3f}")
+
+        print("  [2/3] semantic variance …", end=" ", flush=True)
+        sem_var = self.semantic_variance(messages)
+        print(f"{sem_var:.3f}")
+
+        print("  [3/3] self-evaluation …", end=" ", flush=True)
+        s_eval = self.self_eval(question, context, answer)
+        print(f"{s_eval:.3f}")
+
+        # Weighted combination
         combined = (
-            0.2 * min(1.0, token_entropy / 2.0) +  # Normalize entropy
-            0.5 * semantic_var +  # Semantic is most reliable
-            0.3 * self_eval
+            0.2 * min(1.0, t_entropy / 2.0)  # normalise entropy to [0,1]
+            + 0.5 * sem_var
+            + 0.3 * s_eval
         )
-        
-        # Make decision
-        decision = self._make_decision(answer, combined, token_entropy, semantic_var)
-        
+
+        decision = self._decide(answer, combined, t_entropy, sem_var)
+
         return UncertaintyEstimate(
-            token_entropy=token_entropy,
-            semantic_variance=semantic_var,
-            self_eval_uncertainty=self_eval,
-            combined_uncertainty=combined,
+            answer=answer,
+            token_entropy=t_entropy,
+            semantic_variance=sem_var,
+            self_eval_uncertainty=s_eval,
+            combined=combined,
             decision=decision,
-            confidence=1.0 - combined
+            confidence=1.0 - combined,
         )
-    
-    def _make_decision(
-        self,
-        answer: str,
-        combined: float,
-        entropy: float,
-        semantic: float
+
+    @staticmethod
+    def _decide(
+        answer: str, combined: float, entropy: float, semantic: float
     ) -> Decision:
-        """Decision policy based on uncertainty thresholds"""
-        # Check for explicit abstention
-        if any(phrase in answer.lower() for phrase in ["i don't know", "cannot answer", "not sure"]):
+        if any(
+            p in answer.lower()
+            for p in ["i don't know", "cannot answer", "not sure", "i cannot"]
+        ):
             return Decision.ABSTAIN
-        
-        # Danger zone: low entropy but high semantic (overconfident)
-        if entropy < 0.35 and semantic > 0.4:
+        if (
+            entropy < 0.35 and semantic > 0.4
+        ):  # danger zone: low entropy, high disagreement
             return Decision.ABSTAIN
-        
-        # High combined uncertainty
         if combined >= 0.6:
             return Decision.ABSTAIN
-        elif combined >= 0.4:
+        if combined >= 0.4:
             return Decision.HEDGE
-        else:
-            return Decision.ANSWER
+        return Decision.ANSWER
+
+
+# ─────────────────────────────────────────────
+# RAG system
+# ─────────────────────────────────────────────
 
 
 class RAGSystem:
-    """Complete RAG system with uncertainty estimation"""
-    
+    """End-to-end RAG with uncertainty-aware answering."""
+
     def __init__(
         self,
         documents: List[str],
         model_name: str = "mistralai/Mistral-7B-Instruct-v0.3",
         quantization: str = "int4",
-        retriever_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+        retriever_model: str = "sentence-transformers/all-MiniLM-L6-v2",
     ):
-        """
-        Initialize RAG system
-        
-        Args:
-            documents: Knowledge base
-            model_name: HuggingFace model name
-            quantization: "fp16" or "int4"
-            retriever_model: Sentence transformer model
-        """
-        print("="*70)
-        print("Initializing RAG System with BitsAndBytes")
-        print("="*70)
-        
+        print("=" * 70)
+        print("Initialising RAG System")
+        print("=" * 70)
+
         self.retriever = Retriever(documents, retriever_model)
         self.llm = BitsAndBytesLLM(model_name, quantization)
-        self.uncertainty = UncertaintyEstimator(
-            self.llm,
-            self.retriever.embedder
-        )
-        
-        print("="*70)
-        print("RAG System Ready!")
-        print("="*70)
-        print()
-    
-    def build_prompt(self, question: str, contexts: List[str]) -> str:
-        """Build RAG prompt"""
-        context_block = "\n".join(f"{i+1}. {c}" for i, c in enumerate(contexts))
-        
-        return f"""[INST] You are a helpful assistant. Answer the question using ONLY the context provided below. If the answer is not in the context, say "I don't know".
+        self.uncertainty = UncertaintyEstimator(self.llm, self.retriever.embedder)
 
-Context:
-{context_block}
+        print("=" * 70)
+        print("System ready")
+        print("=" * 70 + "\n")
 
-Question: {question}
+    # ── prompt builder ───────────────────────
 
-Answer: [/INST]"""
-    
+    @staticmethod
+    def _build_messages(question: str, contexts: List[str]) -> List[Dict]:
+        context_block = "\n".join(f"{i + 1}. {c}" for i, c in enumerate(contexts))
+        return [
+            {
+                "role": "user",
+                "content": (
+                    "Answer the question using ONLY the context below. "
+                    'If the answer is not present, say "I don\'t know".\n\n'
+                    f"Context:\n{context_block}\n\n"
+                    f"Question: {question}"
+                ),
+            }
+        ]
+
+    @staticmethod
+    def _build_direct_messages(question: str) -> List[Dict]:
+        return [{"role": "user", "content": f"Answer concisely:\n{question}"}]
+
+    # ── query ────────────────────────────────
+
     def query(
         self,
         question: str,
         k: int = 5,
         use_retrieval: bool = True,
-        return_details: bool = False
+        return_details: bool = False,
     ) -> Dict:
-        """
-        Query the RAG system
-        
-        Args:
-            question: User question
-            k: Number of documents to retrieve
-            use_retrieval: Whether to use RAG (or direct prompting)
-            return_details: Return detailed info
-        
-        Returns:
-            Dictionary with answer and uncertainty info
-        """
         if use_retrieval:
-            # RAG mode
             contexts, scores = self.retriever.retrieve(question, k=k)
-            prompt = self.build_prompt(question, contexts)
+            messages = self._build_messages(question, contexts)
             context_str = "\n".join(contexts)
         else:
-            # Direct prompting (no RAG)
-            prompt = f"[INST] Answer the following question concisely:\n\nQuestion: {question}\n\nAnswer: [/INST]"
             contexts = []
             scores = []
             context_str = ""
-        
-        # Estimate uncertainty
-        uncertainty = self.uncertainty.estimate_all(prompt, question, context_str)
-        
-        # Get primary answer
-        answer, _ = self.uncertainty.estimate_token_entropy(prompt)
-        
-        # Format response
-        if uncertainty.decision == Decision.ANSWER:
-            response = answer
-        elif uncertainty.decision == Decision.HEDGE:
-            response = f"Based on available information, {answer.lower() if answer else 'the answer is unclear'}"
+            messages = self._build_direct_messages(question)
+
+        unc = self.uncertainty.estimate_all(messages, question, context_str)
+
+        # Format the public response based on decision
+        if unc.decision == Decision.ANSWER:
+            response = unc.answer
+        elif unc.decision == Decision.HEDGE:
+            lower = unc.answer.lower() if unc.answer else "the answer is unclear"
+            response = f"Based on available information, {lower}"
         else:
             response = "I don't have sufficient confidence to answer this question."
-        
+
         result = {
-            'question': question,
-            'answer': answer,
-            'response': response,
-            'decision': uncertainty.decision.value,
-            'uncertainty': {
-                'combined': uncertainty.combined_uncertainty,
-                'confidence': uncertainty.confidence,
-                'token_entropy': uncertainty.token_entropy,
-                'semantic_variance': uncertainty.semantic_variance,
-                'self_eval': uncertainty.self_eval_uncertainty
+            "question": question,
+            "answer": unc.answer,
+            "response": response,
+            "decision": unc.decision.value,
+            "uncertainty": {
+                "combined": unc.combined,
+                "confidence": unc.confidence,
+                "token_entropy": unc.token_entropy,
+                "semantic_variance": unc.semantic_variance,
+                "self_eval": unc.self_eval_uncertainty,
             },
-            'use_retrieval': use_retrieval
+            "use_retrieval": use_retrieval,
         }
-        
+
         if return_details:
-            result['contexts'] = contexts
-            result['retrieval_scores'] = scores
-        
+            result["contexts"] = contexts
+            result["retrieval_scores"] = scores
+
         return result
-    
-    def print_result(self, result: Dict):
-        """Pretty print result"""
-        print("\n" + "─"*70)
-        print(f"Question: {result['question']}")
-        print("─"*70)
-        
-        if 'contexts' in result and result['use_retrieval']:
-            print("\nRetrieved Contexts:")
-            for i, ctx in enumerate(result['contexts'], 1):
-                score = result['retrieval_scores'][i-1]
-                print(f"  {i}. [{score:.3f}] {ctx[:80]}...")
-        
-        print(f"\nAnswer: {result['answer']}")
-        print(f"Response: {result['response']}")
-        print(f"\n🎯 Decision: {result['decision'].upper()}")
-        
-        unc = result['uncertainty']
-        print(f"\n📊 Uncertainty Scores:")
-        print(f"  Combined:          {unc['combined']:.3f} (Confidence: {unc['confidence']:.3f})")
-        print(f"  Token Entropy:     {unc['token_entropy']:.3f}")
-        print(f"  Semantic Variance: {unc['semantic_variance']:.3f}")
-        print(f"  Self-Evaluation:   {unc['self_eval']:.3f}")
-        print("─"*70)
+
+    # ── pretty print ─────────────────────────
+
+    @staticmethod
+    def print_result(result: Dict) -> None:
+        print("\n" + "─" * 70)
+        print(f"Q: {result['question']}")
+        if result.get("contexts"):
+            print("\nContexts:")
+            for i, (c, s) in enumerate(
+                zip(result["contexts"], result["retrieval_scores"]), 1
+            ):
+                print(f"  {i}. [{s:.3f}] {c[:80]}…")
+        print(f"\nAnswer:   {result['answer'][:120]}")
+        print(f"Response: {result['response'][:120]}")
+        print(f"\nDecision: {result['decision'].upper()}")
+        u = result["uncertainty"]
+        print(f"\nUncertainty:")
+        print(
+            f"  Combined:          {u['combined']:.3f}  (confidence: {u['confidence']:.3f})"
+        )
+        print(f"  Token entropy:     {u['token_entropy']:.3f}")
+        print(f"  Semantic variance: {u['semantic_variance']:.3f}")
+        print(f"  Self-eval:         {u['self_eval']:.3f}")
+        print("─" * 70)
 
 
-def main():
-    """Interactive demo"""
-    import argparse
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="mistralai/Mistral-7B-Instruct-v0.3")
-    parser.add_argument("--quantization", type=str, choices=["fp16", "int4"], default="int4")
-    parser.add_argument("--k", type=int, default=5)
-    args = parser.parse_args()
-    
-    # Example documents
-    documents = [
-        "The Eiffel Tower is located in Paris, France.",
-        "Paris is the capital city of France.",
-        "Machine learning is a subfield of artificial intelligence.",
-        "Deep learning uses neural networks with multiple layers.",
-        "Python is a popular programming language for AI.",
-        "The Earth revolves around the Sun.",
-        "Water boils at 100 degrees Celsius at sea level.",
-        "DNA carries genetic information.",
-        "Photosynthesis uses sunlight, carbon dioxide, and water.",
-        "The human heart pumps blood throughout the body.",
-    ]
-    
-    # Initialize system
-    rag = RAGSystem(
-        documents=documents,
-        model_name=args.model,
-        quantization=args.quantization
-    )
-    
-    # Interactive loop
-    print("\nInteractive RAG System (type 'exit' to quit)")
-    while True:
-        question = input("\nQuestion: ").strip()
-        if question.lower() in ['exit', 'quit']:
-            break
-        if not question:
-            continue
-        
-        result = rag.query(question, k=args.k, return_details=True)
-        rag.print_result(result)
-
+# ─────────────────────────────────────────────
+# Quick smoke-test  (python rag_bitsandbytes.py)
+# ─────────────────────────────────────────────
 
 if __name__ == "__main__":
-    main()
+    docs = [
+        "Paris is the capital of France.",
+        "The Eiffel Tower is located in Paris.",
+        "Water boils at 100 °C at sea level.",
+        "DNA stores genetic information.",
+        "The Earth orbits the Sun.",
+    ]
+
+    rag = RAGSystem(
+        docs,
+        model_name="unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
+        quantization="fp16",
+    )
+
+    for q in [
+        "What is the capital of France?",
+        "Where is the Eiffel Tower?",
+        "What is the boiling point of gold?",
+    ]:
+        print(f"\nProcessing: {q}")
+        r = rag.query(q, k=3, return_details=True)
+        rag.print_result(r)

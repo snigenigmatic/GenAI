@@ -1,0 +1,3 @@
+accuracy,overconfidence_rate,abstention_precision,ece,auroc,danger_zone_pct,num_samples,num_correct,num_abstained,num_danger_zone,exp_id,quantization,retrieval,method
+0.0,1.0,0.0,0.8407996316565863,,0.0,10,0,10,0,E1,fp16,On,Entropy
+0.0,1.0,0.0,0.9304063936074574,,0.0,10,0,10,0,E2,fp16,On,SemanticVar

@@ -1,0 +1,16 @@
+{
+  "accuracy": 0.0,
+  "overconfidence_rate": 1.0,
+  "abstention_precision": 0.0,
+  "ece": 0.9304063936074574,
+  "auroc": NaN,
+  "danger_zone_pct": 0.0,
+  "num_samples": 10,
+  "num_correct": 0,
+  "num_abstained": 10,
+  "num_danger_zone": 0,
+  "exp_id": "E2",
+  "quantization": "fp16",
+  "retrieval": "On",
+  "method": "SemanticVar"
+}
